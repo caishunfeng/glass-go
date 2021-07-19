@@ -1,0 +1,31 @@
+type PingReq {
+	// Name string `path:"name,options=you|me"`
+}
+
+type PongResp {
+	T int64 `json:"t"`
+}
+
+type ProxyReq {
+
+}
+
+type ProxyResp {
+
+}
+
+type RegistryReq {
+	From string `form:"from"`
+	To   string `form:"to"`
+}
+
+service glass-api {
+	@handler PingHandler
+	get /ping(PingReq) returns (PongResp);
+
+	@handler ProxyHandler
+	get /proxy(ProxyReq) returns (ProxyResp);
+
+	@handler RegistryHandler
+	get /registry(RegistryReq) returns (RegistryResp);
+}
