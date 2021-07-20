@@ -4,7 +4,7 @@ Api:
   Port: 8888
 Logx:
   ServiceName: glass-api
-  Mode: file
+  Mode: console
   Level: info
   KeepDays: 1
 Redis:

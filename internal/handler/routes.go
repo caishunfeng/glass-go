@@ -19,6 +19,11 @@ func RegisterHandlers(engine *rest.Server, serverCtx *svc.ServiceContext) {
 			},
 			{
 				Method:  http.MethodGet,
+				Path:    "/getProxyKeys",
+				Handler: GetProxyKeysHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodGet,
 				Path:    "/proxy/:path",
 				Handler: ProxyHandler(serverCtx),
 			},
@@ -29,8 +34,8 @@ func RegisterHandlers(engine *rest.Server, serverCtx *svc.ServiceContext) {
 			},
 			{
 				Method:  http.MethodGet,
-				Path:    "/registry/internal",
-				Handler: InternalRegistryHandler(serverCtx),
+				Path:    "/cancel",
+				Handler: CancelHandler(serverCtx),
 			},
 		},
 	)

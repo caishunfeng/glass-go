@@ -3,7 +3,6 @@ package logic
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -45,7 +44,7 @@ func (l *ProxyLogic) Proxy(w http.ResponseWriter, r *http.Request, req types.Pro
 	redisCfg := config.GetConfig().Redis
 	redisClient := redis.NewRedis(redisCfg.Addr, redisCfg.Type, redisCfg.Pass)
 
-	newHost, err := redisClient.Get(getProxyKey(host))
+	newHost, err := redisClient.Hget(config.GetConfig().Domain.Prefix, host)
 	if err != nil || newHost == "" {
 		return err
 	}
@@ -54,7 +53,7 @@ func (l *ProxyLogic) Proxy(w http.ResponseWriter, r *http.Request, req types.Pro
 		return errors.New("cat not get proxy domain")
 	}
 
-	logx.Infof("proxy host:%s, newHost:%s", host, newHost)
+	logx.Infof("proxy log -> host:%s, newHost:%s", host, newHost)
 
 	remoteUrl := "http://" + newHost
 
@@ -71,78 +70,47 @@ func (l *ProxyLogic) Proxy(w http.ResponseWriter, r *http.Request, req types.Pro
 	return nil
 }
 
-func (l *ProxyLogic) Registry(req types.DomainRegistryReq) error {
+func (l *ProxyLogic) Registry(req types.DomainRegistryReq) (bool, error) {
 	redisCfg := config.GetConfig().Redis
 	redisClient := redis.NewRedis(redisCfg.Addr, redisCfg.Type, redisCfg.Pass)
 
 	if req.From == "" {
-		return errors.New("from is empty")
+		return false, errors.New("from is empty")
 	}
 
 	if req.To == "" {
-		return errors.New("to is empty")
+		return false, errors.New("to is empty")
 	}
 
 	if req.Expire == 0 {
 		req.Expire = config.GetConfig().Domain.DefaultExpire
 	}
 
-	var val bool
-	var err error
-	if req.Expire == NoExpire {
-		val, err = redisClient.Setnx(getProxyKey(req.From), req.To)
-	} else {
-		val, err = redisClient.SetnxEx(getProxyKey(req.From), req.To, config.GetConfig().Domain.DefaultExpire)
-	}
+	val, err := redisClient.Hsetnx(config.GetConfig().Domain.Prefix, req.From, req.To)
 	if err != nil {
-		return err
+		return false, err
 	}
 	if val != true {
-		return errors.New("domain had exist")
+		return false, errors.New("domain had exist")
 	}
-	return nil
+
+	if req.Expire != NoExpire {
+		return val, redisClient.Expire(config.GetConfig().Domain.Prefix+":"+req.From, req.Expire)
+	}
+
+	return val, err
 }
 
-func (l *ProxyLogic) InternalRegistry(r *http.Request, req types.InternalDomainRegistryReq) error {
+func (l *ProxyLogic) Cancel(req types.DomainCancelReq) (val bool, err error) {
 	redisCfg := config.GetConfig().Redis
 	redisClient := redis.NewRedis(redisCfg.Addr, redisCfg.Type, redisCfg.Pass)
-
-	ip := clientIP(r)
-	if ip == "" {
-		return errors.New("get ip error")
-	}
-
-	if req.Domain == "" {
-		return errors.New("domain is empty")
-	}
-
-	if req.LocalPort == 0 {
-		return errors.New("local port is empty")
-	}
-
-	if req.Expire == 0 {
-		req.Expire = config.GetConfig().Domain.DefaultExpire
-	}
-
-	var val bool
-	var err error
-	if req.Expire == NoExpire {
-		val, err = redisClient.Setnx(getProxyKey(req.Domain), fmt.Sprintf("%s:%d", ip, req.LocalPort))
-	} else {
-		val, err = redisClient.SetnxEx(getProxyKey(req.Domain), fmt.Sprintf("%s:%d", ip, req.LocalPort), config.GetConfig().Domain.DefaultExpire)
-	}
-
-	if err != nil {
-		return err
-	}
-	if val != true {
-		return errors.New("domain had exist")
-	}
-	return nil
+	return redisClient.Hdel(config.GetConfig().Domain.Prefix, req.From)
 }
 
-func getProxyKey(key string) string {
-	return config.GetConfig().Domain.Prefix + key
+func (l *ProxyLogic) GetProxyKeys() (val map[string]string, err error) {
+	redisCfg := config.GetConfig().Redis
+	redisClient := redis.NewRedis(redisCfg.Addr, redisCfg.Type, redisCfg.Pass)
+	return redisClient.Hgetall(config.GetConfig().Domain.Prefix)
 }
 
 func clientIP(r *http.Request) string {
