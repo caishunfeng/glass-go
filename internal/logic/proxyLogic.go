@@ -107,10 +107,17 @@ func (l *ProxyLogic) Cancel(req types.DomainCancelReq) (val bool, err error) {
 	return redisClient.Hdel(config.GetConfig().Domain.Prefix, req.From)
 }
 
-func (l *ProxyLogic) GetProxyKeys() (val map[string]string, err error) {
+func (l *ProxyLogic) GetProxyKeys() (val []types.ProxyKeyResp, err error) {
 	redisCfg := config.GetConfig().Redis
 	redisClient := redis.NewRedis(redisCfg.Addr, redisCfg.Type, redisCfg.Pass)
-	return redisClient.Hgetall(config.GetConfig().Domain.Prefix)
+	res, err := redisClient.Hgetall(config.GetConfig().Domain.Prefix)
+	if err != nil {
+		return nil, err
+	}
+	for k, v := range res {
+		val = append(val, types.ProxyKeyResp{From: k, To: v})
+	}
+	return
 }
 
 func clientIP(r *http.Request) string {

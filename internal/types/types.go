@@ -24,3 +24,8 @@ type DomainRegistryReq struct {
 type DomainCancelReq struct {
 	From string `form:"from"`
 }
+
+type ProxyKeyResp struct {
+	From string `json:"from"`
+	To   string `json:"to"`
+}
